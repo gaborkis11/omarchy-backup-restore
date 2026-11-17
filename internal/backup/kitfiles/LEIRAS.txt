@@ -1,0 +1,49 @@
+OMARCHY BACKUP & RESTORE – MI EZ A MAPPA?
+==========================================
+
+Ez az Omarchy gép titkosított mentése: beállítások, programlista, kulcsok,
+fájlok. Az „Omarchy Backup & Restore" (obr) program készítette.
+https://github.com/gaborkis11/omarchy-backup-restore
+
+Utolsó mentés: {{.Created}}
+Omarchy verzió: {{.OmarchyVersion}}
+
+Mappák:
+  repo/   a titkosított mentés (restic tároló) – NE módosítsd kézzel
+  kit/    maga a program (obr, restic, rclone) és két indító:
+            restore.sh – telepít ÉS visszaállít
+            install.sh – csak telepít (pl. hogy egy új gépről mentést készíts)
+
+CSAK A PROGRAM TELEPÍTÉSE EGY GÉPRE (visszaállítás nélkül)
+---------------------------------------------------------
+  Super + Enter (terminál), majd:
+
+     bash /run/media/$USER/*/omarchy-backup/kit/install.sh
+
+  Utána: dock-ikon, vagy Super + Space → „Omarchy Backup & Restore”.
+
+VISSZAÁLLÍTÁS FRISS OMARCHY GÉPRE
+---------------------------------
+1. Telepítsd az Omarchy-t, jelentkezz be, csatlakozz az internetre.
+2. Csatlakoztasd ezt a lemezt (magától megjelenik a /run/media/<felhasználó>/ alatt).
+3. Nyiss egy terminált (Super + Enter), és írd be (bármilyen nevű lemezen működik):
+
+     bash /run/media/$USER/*/omarchy-backup/kit/restore.sh
+
+   Ez egyszer kell: a program beteszi magát a rendszerbe (alkalmazásmenü, dock),
+   és elindítja a visszaállítást. Utána már csak kattintani kell.
+
+4. Add meg a mentés jelszavát, pipáld be, mit kérsz vissza, és kész.
+
+Ha a mentés a Synology NAS-on van:
+   smbclient //NAS/<megosztás> -U <felhasználó> -c 'prompt; cd <mappa>/omarchy-backup/kit; mget *'
+   bash restore.sh
+
+FONTOS
+------
+- A mentés jelszava nélkül az adatok NEM állíthatók vissza. Nincs „elfelejtett
+  jelszó" funkció – ez a valódi titkosítás ára. Ha adtál meg helyreállító
+  kulcsot, az is működik jelszóként.
+- Ne húzd ki a lemezt mentés közben (FAT32-n ez sérülést okozhat). A program
+  minden mentés után ellenőrzi a tárolót.
+- Ebben a fájlban nincs titok; nyugodtan elolvashatja bárki.

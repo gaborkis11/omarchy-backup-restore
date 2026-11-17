@@ -1,0 +1,428 @@
+# Omarchy Backup & Restore – alkalmazáskatalógus
+#
+# Egy app-bejegyzés megmondja, hogy egy ismert alkalmazásnál mi a beállítás,
+# az adat, a titok és a gyorsítótár. A program minden indításkor frissen felméri
+# a gépet; ami NINCS a katalógusban, az sem vész el: az „Egyéb" kategóriában
+# jelenik meg.
+#
+# Mezők:
+#   id, label, category (omarchy|apps|secrets|models|files)
+#   packages      – a programot biztosító csomagok (visszaállításnál előbb telepítjük)
+#   running       – folyamatnevek; ha futnak, mentés előtt szólunk
+#   paths         – home-relatív utak (fájl vagy mappa; glob is lehet)
+#   exclude       – kizárások (home-relatív glob, vagy alapnév perjel nélkül)
+#   secret_paths  – titkos részek; külön tételként jelennek meg a „Kulcsok és belépések" alatt
+#   secret_label  – a titok-tétel neve
+#   requires      – más tételek, amelyek nélkül ez nem működik (pl. keyring)
+#   replace       – visszaállításnál a meglévő mappát félreteszi és egészében cseréli
+#   default_on    – alapból pipálva (alapértelmezés: true)
+#   hardware      – csak egyező hardveren állítható vissza (nvidia|amd|intel|same-board)
+#   post_restore  – visszaállítás utáni parancsok (felhasználóként)
+#   note          – rövid magyarázat
+
+# ───────────────────────── Omarchy és asztal ─────────────────────────
+
+[[app]]
+id = "desktop-defaults"
+label = "Alapértelmezett alkalmazások és mappák"
+label_en = "Default apps and folders"
+category = "omarchy"
+paths = ["~/.config/mimeapps.list", "~/.config/user-dirs.dirs", "~/.config/user-dirs.locale"]
+note = "Melyik program nyisson meg mit (böngésző, levelezés, linkek), és a Letöltések/Képek mappák."
+note_en = "Which program opens what (browser, mail, links) and the Downloads/Pictures folders."
+
+[[app]]
+id = "gtk"
+label = "GTK és fájlkezelő-könyvjelzők"
+label_en = "GTK and file manager bookmarks"
+category = "omarchy"
+paths = ["~/.config/gtk-3.0", "~/.config/gtk-4.0", "~/.local/share/nautilus", "~/.local/share/nautilus-python"]
+exclude = ["~/.config/gtk-3.0/servers"]
+
+[[app]]
+id = "fonts-icons"
+label = "Saját betűtípusok, ikonok, témák"
+label_en = "Own fonts, icons, themes"
+category = "omarchy"
+paths = ["~/.local/share/fonts", "~/.fonts", "~/.icons", "~/.themes", "~/.local/share/icons"]
+note = "A webappok ikonjai is itt vannak (~/.local/share/icons)."
+note_en = "Web app icons live here too (~/.local/share/icons)."
+
+[[app]]
+id = "omarchy-state"
+label = "Omarchy egyéb állapot (időjárás, munkaterület-elrendezések, háttérképek témánként)"
+label_en = "Other Omarchy state (weather, workspace layouts, per-theme wallpapers)"
+category = "omarchy"
+paths = [
+  "~/.local/state/omarchy/settings",
+  "~/.local/state/omarchy/workspace-layouts",
+  "~/.local/state/omarchy/theme-backgrounds",
+  "~/.local/state/omarchy/monitor-workspaces",
+]
+
+[[app]]
+id = "xcompose"
+label = "Billentyűkombinációk (.XCompose: ékezetek, emojik, saját név/e-mail)"
+label_en = "Compose keys (.XCompose: accents, emoji, own name/e-mail)"
+category = "omarchy"
+paths = ["~/.XCompose"]
+
+[[app]]
+id = "local-bin"
+label = "Saját parancsok és letöltött programok (~/.local/bin, ~/bin)"
+label_en = "Own commands and downloaded programs (~/.local/bin, ~/bin)"
+category = "apps"
+paths = ["~/.local/bin", "~/bin"]
+note = "Ide kerülnek a kézzel letöltött programok és saját szkriptek. A rendszerprogramokra mutató hivatkozások is visszakerülnek."
+note_en = "Manually downloaded programs and own scripts live here. Links to system programs come back too."
+
+[[app]]
+id = "environment"
+label = "Környezeti változók (environment.d)"
+label_en = "Environment variables (environment.d)"
+category = "omarchy"
+paths = ["~/.config/environment.d"]
+
+[[app]]
+id = "shell-history"
+label = "Parancselőzmények (bash, zoxide)"
+label_en = "Command history (bash, zoxide)"
+category = "apps"
+paths = ["~/.bash_history", "~/.local/share/zoxide"]
+
+# ───────────────────────── Alkalmazások ─────────────────────────
+
+[[app]]
+id = "google-chrome"
+label = "Google Chrome (profil, könyvjelzők, bővítmények, webappok adatai)"
+label_en = "Google Chrome (profile, bookmarks, extensions, web app data)"
+category = "apps"
+packages = ["google-chrome"]
+running = ["chrome"]
+paths = ["~/.config/google-chrome", "~/.config/chrome-flags.conf"]
+exclude = [
+  "~/.config/google-chrome/*/Service Worker/CacheStorage",
+  "~/.config/google-chrome/*/Service Worker/ScriptCache",
+  "~/.config/google-chrome/*/Shared Dictionary",
+  "~/.config/google-chrome/*/blob_storage",
+  "~/.config/google-chrome/Crash Reports",
+  "~/.config/google-chrome/*.pma",
+  "~/.config/google-chrome/CertificateRevocation",
+  "~/.config/google-chrome/GPUPersistentCache",
+]
+secret_paths = [
+  "~/.config/google-chrome/*/Login Data",
+  "~/.config/google-chrome/*/Login Data-journal",
+  "~/.config/google-chrome/*/Login Data For Account",
+  "~/.config/google-chrome/*/Login Data For Account-journal",
+  "~/.config/google-chrome/*/Cookies",
+  "~/.config/google-chrome/*/Cookies-journal",
+  "~/.config/google-chrome/*/Web Data",
+  "~/.config/google-chrome/*/Web Data-journal",
+]
+secret_label = "Chrome: mentett jelszavak, sütik (bejelentkezések), automatikus kitöltés"
+secret_label_en = "Chrome: saved passwords, cookies (logins), autofill"
+requires = ["secret:keyring"]
+replace = true
+note = "Az Omarchy webappok (WhatsApp, Teams, Outlook stb.) is a Chrome profilját használják, a bejelentkezésükkel együtt."
+note_en = "Omarchy web apps (WhatsApp, Teams, Outlook…) use Chrome's profile, logins included."
+
+[[app]]
+id = "chromium"
+label = "Chromium"
+label_en = "Chromium"
+category = "apps"
+packages = ["chromium"]
+running = ["chromium"]
+paths = ["~/.config/chromium", "~/.config/chromium-flags.conf"]
+secret_paths = ["~/.config/chromium/*/Login Data*", "~/.config/chromium/*/Cookies*", "~/.config/chromium/*/Web Data*"]
+secret_label = "Chromium: jelszavak és sütik"
+secret_label_en = "Chromium: passwords and cookies"
+requires = ["secret:keyring"]
+replace = true
+
+[[app]]
+id = "brave"
+label = "Brave"
+label_en = "Brave"
+category = "apps"
+packages = ["brave-bin"]
+running = ["brave"]
+paths = ["~/.config/BraveSoftware"]
+exclude = ["~/.config/BraveSoftware/*/*/Service Worker/CacheStorage"]
+replace = true
+
+[[app]]
+id = "firefox"
+label = "Firefox"
+label_en = "Firefox"
+category = "apps"
+packages = ["firefox"]
+running = ["firefox"]
+paths = ["~/.mozilla", "~/.config/mozilla"]
+exclude = ["cache2", "startupCache"]
+secret_paths = ["~/.mozilla/firefox/*/logins.json", "~/.mozilla/firefox/*/key4.db", "~/.mozilla/firefox/*/cookies.sqlite"]
+secret_label = "Firefox: jelszavak és sütik"
+secret_label_en = "Firefox: passwords and cookies"
+replace = true
+
+[[app]]
+id = "spotify"
+label = "Spotify (beállítások, Wayland-javítás)"
+label_en = "Spotify (settings, Wayland fix)"
+category = "apps"
+packages = ["spotify"]
+running = ["spotify"]
+paths = ["~/.config/spotify", "~/.config/spotify-flags.conf"]
+note = "A spotify-flags.conf tartalmazza a Wayland-javítást (--ozone-platform=wayland)."
+note_en = "spotify-flags.conf holds the Wayland fix (--ozone-platform=wayland)."
+
+[[app]]
+id = "obsidian"
+label = "Obsidian (beállítások, széflista)"
+label_en = "Obsidian (settings, vault list)"
+category = "apps"
+packages = ["obsidian"]
+running = ["obsidian"]
+paths = ["~/.config/obsidian"]
+exclude = ["~/.config/obsidian/*.asar", "~/.config/obsidian/Service Worker"]
+note = "A jegyzetszéfek (vaultok) a Személyes fájlok között vannak."
+note_en = "The vaults themselves are under Personal files."
+
+[[app]]
+id = "zed"
+label = "Zed szerkesztő"
+label_en = "Zed editor"
+category = "apps"
+packages = ["zed"]
+running = ["zed-editor", "zed"]
+paths = ["~/.config/zed", "~/.local/share/zed"]
+exclude = ["~/.local/share/zed/logs", "~/.local/share/zed/hang_traces", "~/.local/share/zed/languages", "~/.local/share/zed/node", "~/.local/share/zed/copilot"]
+
+[[app]]
+id = "nvim"
+label = "Neovim beállítások (LazyVim)"
+label_en = "Neovim settings (LazyVim)"
+category = "apps"
+paths = ["~/.config/nvim"]
+note = "A bővítményeket (~/.local/share/nvim) a Neovim első indításkor újra letölti."
+note_en = "Neovim downloads its plugins (~/.local/share/nvim) again on first start."
+
+[[app]]
+id = "vscode"
+label = "VS Code"
+label_en = "VS Code"
+category = "apps"
+packages = ["visual-studio-code-bin"]
+running = ["code"]
+paths = ["~/.config/Code/User", "~/.vscode/extensions/extensions.json"]
+exclude = ["~/.config/Code/User/workspaceStorage", "~/.config/Code/User/History"]
+
+[[app]]
+id = "superwhisper"
+label = "Superwhisper (diktálás: beállítások, gyorsbillentyűk, szótár, előzmények)"
+label_en = "Superwhisper (dictation: settings, shortcuts, vocabulary, history)"
+category = "apps"
+packages = ["superwhisper-bin"]
+running = ["superwhisper"]
+paths = [
+  "~/.config/superwhisper",
+  "~/.local/share/superwhisper/database",
+  "~/.local/share/superwhisper/recordings",
+]
+exclude = ["~/.config/superwhisper/*.bak", "~/.config/superwhisper/*.superwhisper-*.bak", "~/.config/superwhisper/settings.lock"]
+secret_paths = ["~/.config/superwhisper/cloud-credentials.json", "~/.config/superwhisper/cloud-device-id"]
+secret_label = "Superwhisper felhős fiók"
+secret_label_en = "Superwhisper cloud account"
+
+[[app]]
+id = "superwhisper-models"
+label = "Superwhisper AI-modellek"
+label_en = "Superwhisper AI models"
+category = "models"
+paths = ["~/.local/share/superwhisper/models"]
+default_on = false
+note = "Újra letölthetők, de lassan. Ha bepipálod, a visszaállítás után azonnal használhatók."
+note_en = "Re-downloadable, but slowly. If ticked, they work right after the restore."
+
+[[app]]
+id = "whisperrocket"
+label = "WhisperRocket beállítások (szótár, előzmények)"
+label_en = "WhisperRocket settings (dictionary, history)"
+category = "apps"
+paths = ["~/.config/whisperrocket"]
+secret_paths = ["~/.config/whisperrocket/.env"]
+secret_label = "WhisperRocket API-kulcsok (.env)"
+secret_label_en = "WhisperRocket API keys (.env)"
+
+[[app]]
+id = "huggingface-models"
+label = "Hugging Face modellek (pl. WhisperRocket large-v3-hu)"
+label_en = "Hugging Face models"
+category = "models"
+paths = ["~/.cache/huggingface/hub"]
+default_on = false
+
+[[app]]
+id = "transmission-remote-gtk"
+label = "Transmission Remote (kapcsolat, jelszó)"
+label_en = "Transmission Remote (connection, password)"
+category = "secrets"
+packages = ["transmission-remote-gtk"]
+paths = ["~/.config/transmission-remote-gtk"]
+
+[[app]]
+id = "localsend"
+label = "LocalSend"
+label_en = "LocalSend"
+category = "apps"
+paths = ["~/.local/share/org.localsend.localsend_app"]
+
+[[app]]
+id = "libreoffice"
+label = "LibreOffice"
+label_en = "LibreOffice"
+category = "apps"
+running = ["soffice.bin"]
+paths = ["~/.config/libreoffice"]
+exclude = ["~/.config/libreoffice/*/user/backup", "~/.config/libreoffice/*/user/uno_packages/cache"]
+
+[[app]]
+id = "claude-code"
+label = "Claude Code (beállítások, projektmemória, előzmények)"
+label_en = "Claude Code (settings, project memory, history)"
+category = "apps"
+paths = ["~/.claude", "~/.claude.json"]
+exclude = [
+  "~/.claude/sessions", "~/.claude/session-env", "~/.claude/shell-snapshots",
+  "~/.claude/paste-cache", "~/.claude/cache", "~/.claude/plugins/marketplaces",
+  "~/.claude/plugins/plugin-directory-cache-v2.json", "~/.claude/statsig", "~/.claude/todos",
+  "~/.claude/ide",
+]
+secret_paths = ["~/.claude/.credentials.json", "~/.claude.json"]
+secret_label = "Claude Code bejelentkezés"
+secret_label_en = "Claude Code login"
+
+[[app]]
+id = "codex-gemini-agents"
+label = "Egyéb AI-ügynökök beállításai (Codex, Gemini, Pi, Hermes)"
+label_en = "Other AI agents' settings (Codex, Gemini, Pi, Hermes)"
+category = "apps"
+paths = ["~/.codex", "~/.gemini", "~/.pi", "~/.hermes", "~/.agents"]
+
+[[app]]
+id = "gh"
+label = "GitHub CLI beállítások"
+label_en = "GitHub CLI settings"
+category = "apps"
+paths = ["~/.config/gh/config.yml"]
+
+[[app]]
+id = "mise"
+label = "mise (saját eszközverziók)"
+label_en = "mise (own tool versions)"
+category = "apps"
+paths = ["~/.config/mise", "~/.tool-versions"]
+post_restore = ["mise install"]
+
+[[app]]
+id = "docker-config"
+label = "Docker kliens beállítások"
+label_en = "Docker client settings"
+category = "secrets"
+paths = ["~/.docker/config.json"]
+
+[[app]]
+id = "wireplumber-state"
+label = "Hangeszközök állapota (alapértelmezett hangszóró/mikrofon, hangerők)"
+label_en = "Audio device state (default speaker/microphone, volumes)"
+category = "apps"
+paths = ["~/.local/state/wireplumber"]
+note = "Más gépen az eszközök neve eltérhet; ott magától újraépül."
+note_en = "Device names may differ on another machine; there it rebuilds itself."
+
+[[app]]
+id = "omarchy-clipboard"
+label = "Vágólap-előzmények és képernyőképek (Omarchy)"
+label_en = "Clipboard history and screenshots (Omarchy)"
+category = "files"
+paths = [
+  "~/.local/state/omarchy/clipboard-history.json",
+  "~/.local/state/omarchy/clipboard-images",
+  "~/.local/state/Omarchy/omasnap",
+]
+
+[[app]]
+id = "thunderbird"
+label = "Thunderbird (levelezés, fiókok)"
+label_en = "Thunderbird (mail, accounts)"
+category = "apps"
+packages = ["thunderbird"]
+running = ["thunderbird"]
+paths = ["~/.thunderbird"]
+exclude = ["cache2", "startupCache"]
+secret_paths = ["~/.thunderbird/*/logins.json", "~/.thunderbird/*/key4.db"]
+secret_label = "Thunderbird jelszavak"
+secret_label_en = "Thunderbird passwords"
+replace = true
+
+# ───────────────────────── Kulcsok és belépések ─────────────────────────
+
+[[app]]
+id = "keyring"
+label = "Kulcstartó (GNOME Keyring: jelszavak, Chrome titkosító kulcsa, tokenek)"
+label_en = "Keyring (GNOME Keyring: passwords, Chrome encryption key, tokens)"
+category = "secrets"
+paths = ["~/.local/share/keyrings"]
+note = "Ennek a fájlnak a visszaállítása kell ahhoz, hogy a Chrome-belépések és sütik működjenek."
+note_en = "This file is needed for Chrome logins and cookies to work after a restore."
+
+[[app]]
+id = "ssh"
+label = "SSH kulcsok és ismert gépek"
+label_en = "SSH keys and known hosts"
+category = "secrets"
+paths = ["~/.ssh"]
+exclude = ["~/.ssh/known_hosts.old", "~/.ssh/agent*", "~/.ssh/*.sock"]
+
+[[app]]
+id = "gnupg"
+label = "GnuPG kulcsok"
+label_en = "GnuPG keys"
+category = "secrets"
+paths = ["~/.gnupg"]
+exclude = ["~/.gnupg/S.*", "~/.gnupg/*.lock", "~/.gnupg/random_seed"]
+
+[[app]]
+id = "gh-auth"
+label = "GitHub bejelentkezés (gh)"
+label_en = "GitHub login (gh)"
+category = "secrets"
+paths = ["~/.config/gh/hosts.yml"]
+post_restore = ["gh auth setup-git"]
+
+[[app]]
+id = "nssdb"
+label = "Tanúsítványtár (NSS)"
+label_en = "Certificate store (NSS)"
+category = "secrets"
+paths = ["~/.local/share/pki", "~/.pki"]
+
+[[app]]
+id = "misc-credentials"
+label = "Egyéb hozzáférések (.netrc, AWS, rclone, pass, git-credentials)"
+label_en = "Other credentials (.netrc, AWS, rclone, pass, git-credentials)"
+category = "secrets"
+paths = ["~/.netrc", "~/.aws", "~/.config/rclone", "~/.password-store", "~/.git-credentials", "~/.config/aether", "~/.local/share/aether"]
+
+# ───────────────────────── Git-projektek (speciális szabályok) ─────────────────────────
+# A program minden git-projektet magától megtalál a home-ban. Itt csak a különleges
+# eseteket írjuk le: melyik nem verziókezelt fájl kell, és mi a telepítő recept.
+
+[[gitproject]]
+path = "~/Applications/WhisperRocket"
+keep_untracked = ["config.json"]
+exclude = ["venv", "dist", "__pycache__", "build"]
+recipe = "./install.sh"
+note = "Visszaállításkor a program újra letölti a GitHubról, visszateszi a config.json-t, majd felajánlja az ./install.sh futtatását (az újra felépíti a Python-környezetet)."
+note_en = "On restore it is downloaded from GitHub again, config.json is put back, and ./install.sh is offered (it rebuilds the Python environment)."

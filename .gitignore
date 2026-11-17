@@ -1,0 +1,7 @@
+/bin/
+/dist/
+*.test
+# local-only notes (machine specific, not published)
+/CLAUDE.md
+/docs/PLAN.md
+/docs/RESEARCH.md
