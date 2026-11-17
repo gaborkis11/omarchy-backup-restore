@@ -137,6 +137,50 @@ func rcloneEnv(ctx context.Context, r runner.Runner, rclone string, d config.Des
 	return env, nil
 }
 
+// nasPath turns a share-relative path ("share/sub") into an rclone path.
+func nasPath(d config.Destination, rel string) string {
+	p := strings.Trim(rel, "/")
+	if d.Type == config.SFTP {
+		p = "/" + p
+	}
+	return "obrnas:" + p
+}
+
+// Browse lists the sub folders of rel on a NAS ("" = the shared folders).
+// Synology system folders (#recycle, @eaDir…) are hidden.
+func Browse(ctx context.Context, r runner.Runner, rclone string, d config.Destination, cr Credentials, rel string) ([]string, error) {
+	if rclone == "" {
+		return nil, errors.New(i18n.T("a hálózati mentéshez rclone kell (make tools)"))
+	}
+	env, err := rcloneEnv(ctx, r, rclone, d, cr)
+	if err != nil {
+		return nil, err
+	}
+	res, err := r.Run(ctx, runner.Cmd{Name: rclone, Args: []string{"lsf", "--dirs-only", nasPath(d, rel)}, Env: env})
+	if err != nil {
+		return nil, mapErr(err)
+	}
+	var out []string
+	for _, l := range strings.Split(string(res.Stdout), "\n") {
+		n := strings.TrimSuffix(strings.TrimSpace(l), "/")
+		if n == "" || strings.HasPrefix(n, "#") || strings.HasPrefix(n, "@") {
+			continue
+		}
+		out = append(out, n)
+	}
+	return out, nil
+}
+
+// MakeDir creates a folder on a NAS.
+func MakeDir(ctx context.Context, r runner.Runner, rclone string, d config.Destination, cr Credentials, rel string) error {
+	env, err := rcloneEnv(ctx, r, rclone, d, cr)
+	if err != nil {
+		return err
+	}
+	_, err = r.Run(ctx, runner.Cmd{Name: rclone, Args: []string{"mkdir", nasPath(d, rel)}, Env: env})
+	return mapErr(err)
+}
+
 // RemoteListing lists files in a remote folder (for the kit and existence checks).
 func (l *Location) RemoteListing(ctx context.Context, sub string) ([]string, error) {
 	if !l.Dest.Remote() {

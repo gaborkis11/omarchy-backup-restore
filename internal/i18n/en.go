@@ -650,4 +650,33 @@ var en = map[string]string{
 	"Bekapcsolva: %s → %s":         "On: %s → %s",
 	"%s, %s, %s szabad (%s)":       "%s, %s, %s free (%s)",
 	"csomaglista: %v":              "package list: %v",
+
+	// ── NAS browser ──
+	"Minden mező kell.":              "All fields are required.",
+	"Synology / NAS – hova mentsen?": "Synology / NAS – where to save?",
+	"Enter létrehozás  •  Esc mégse": "Enter create  •  Esc cancel",
+	"↑/↓  •  Enter megnyit / választ  •  ←/Backspace fel  •  n új mappa  •  Esc vissza": "↑/↓  •  Enter open / choose  •  ←/Backspace up  •  n new folder  •  Esc back",
+	"Érvénytelen mappanév.":                                   "Invalid folder name.",
+	"Új mappát egy megosztott mappán belül lehet létrehozni.": "New folders can only be created inside a shared folder.",
+	"Új mappa neve": "New folder name",
+	"Hely: ":        "Location: ",
+	"Válassz egy megosztott mappát (Enter = belépés).":     "Choose a shared folder (Enter = open).",
+	"Ebben a mappában már van Omarchy-mentés.":             "This folder already holds an Omarchy backup.",
+	"Lépj be egy mappába, vagy válaszd ezt; n = új mappa.": "Open a folder or choose this one; n = new folder.",
+	"Betöltés…": "Loading…",
+	"(nincs megosztott mappa, amihez hozzáférsz)": "(no shared folder you have access to)",
+	"Ide mentsen: ":       "Save here: ",
+	"Vissza egy szinttel": "Up one level",
+
+	// ── browsers ──
+	"Mappa tallózása": "Browse folders",
+	"Bármilyen mappa a gépen vagy egy csatolt lemezen (pl. /mnt/backup).":              "Any folder on this machine or a mounted drive (e.g. /mnt/backup).",
+	"Synology / NAS – hol van a mentés?":                                               "Synology / NAS – where is the backup?",
+	"Itt nincs mentés. Keresd meg azt a mappát, amelyben az omarchy-backup mappa van.": "No backup here. Find the folder that contains the omarchy-backup folder.",
+	"Ezt a mentést nyisd meg: ":                                                        "Open this backup: ",
+	"Hol van a mentés?":                                                                "Where is the backup?",
+	"Hova mentsen?":                                                                    "Where to save?",
+	"Ebben a mappában van Omarchy-mentés.":                                             "This folder holds an Omarchy backup.",
+	"Lépj be abba a mappába, amelyben a mentés van (a ★ jelölt mappákban van mentés).": "Open the folder that holds the backup (folders marked ★ contain one).",
+	"van benne mentés": "has a backup",
 }

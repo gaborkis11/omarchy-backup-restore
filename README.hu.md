@@ -205,12 +205,15 @@ Ezután minden ugyanúgy néz ki és működik, mint a régi gépen. A program i
    | Név | `Synology` |
    | NAS címe | a NAS IP-címe, pl. `192.168.1.10` (vagy a neve, pl. `NAS.local`) |
    | Kapcsolat | `SFTP` |
-   | Megosztott mappa | például `backup` |
-   | Almappa | üresen hagyhatod |
    | Felhasználó | a DSM-felhasználóneved |
    | Jelszó | a DSM-jelszavad |
 
-3. Az utolsó mezőn nyomj **Entert**. A program kapcsolódik. Innen ugyanúgy megy tovább, mint az [1. részben](#1-rész--mentés-készítése) az 5. lépéstől.
+3. Az utolsó mezőn nyomj **Entert**. A program kapcsolódik, és megjelennek a NAS megosztott mappái. **Tallózz:**
+   - `Enter`: belépés egy mappába;
+   - `←` vagy `Backspace`: vissza egy szinttel;
+   - `n`: új mappa;
+   - a kívánt mappában válaszd a **✓ Ide mentsen** sort.
+4. Innen ugyanúgy megy tovább, mint az [1. részben](#1-rész--mentés-készítése) az 5. lépéstől.
 
 **Visszaállítás NAS-ról friss gépen:** a [2. rész](#2-rész--visszaállítás-egy-új-friss-omarchy-ra) B) pontja helyett ezt a három sort írd be a terminálba (a `<NAS címe>`, `<megosztás>` és `<felhasználó>` helyére a sajátodat):
 
@@ -220,7 +223,9 @@ smbclient //<NAS címe>/<megosztás> -U <felhasználó> -c 'prompt; cd omarchy-b
 bash restore.sh
 ```
 
-A programban válaszd a **Synology / NAS hozzáadása** pontot ugyanazokkal az adatokkal, utána a C) ponttól ugyanúgy megy.
+A programban válaszd a **Synology / NAS hozzáadása** pontot ugyanazokkal az adatokkal, és tallózz el abba a mappába, ahol a mentés van. Visszaállításnál csak olyan mappát enged kiválasztani, amelyben tényleg van mentés. Utána a C) ponttól ugyanúgy megy.
+
+**Helyi mappák** ugyanígy tallózhatók: a célhelyek listájában válaszd a **Mappa tallózása** pontot. Visszaállításnál a ★ jellel jelölt mappákban van mentés.
 
 ---
 

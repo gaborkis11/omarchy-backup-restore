@@ -70,11 +70,9 @@ Egyszer kell beállítani:
 |---|---|
 | NAS címe | a NAS IP-címe, pl. `192.168.1.10` (vagy `NAS.local`) |
 | Kapcsolat | **SFTP** (ajánlott) vagy SMB |
-| Megosztott mappa | például `backup` |
-| Almappa | nem kötelező, például `omarchy` |
 | Felhasználó / Jelszó | a DSM-belépésed |
 
-A program kapcsolódik, és a NAS bekerül a célhelyek közé. Innentől ugyanúgy megy, mint a lemezes mentés.
+Az utolsó mezőn nyomj Entert: a program kapcsolódik, és megmutatja a megosztott mappákat. Tallózz el a kívánt mappába (`Enter` be, `←` vissza, `n` új mappa), és válaszd a **✓ Ide mentsen** sort. A NAS ezután bekerül a célhelyek közé. Innentől ugyanúgy megy, mint a lemezes mentés.
 A NAS jelszavát csak az adott munkamenetre jegyzi meg, kivéve, ha bekapcsolod az ütemezett mentést.
 
 ## Ütemezett (automatikus) mentés

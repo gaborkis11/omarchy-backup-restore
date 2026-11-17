@@ -2,4 +2,4 @@
 package version
 
 // Version is set with -ldflags "-X .../internal/version.Version=..."
-var Version = "v1.2.0"
+var Version = "v1.3.0"

@@ -108,6 +108,9 @@ const (
 	purposeSchedule
 )
 
+// restoring reports whether the destination must already hold a backup.
+func (p purpose) restoring() bool { return p == purposeRestore || p == purposeManage }
+
 func (p purpose) title() string {
 	switch p {
 	case purposeBackup:
@@ -196,8 +199,8 @@ func (s *destPicker) build(a *App) {
 	opts = append(opts,
 		option{label: i18n.T("Synology / NAS hozzáadása"), desc: i18n.T("Hálózati mentés SFTP-n vagy SMB-n keresztül (felhasználónév + jelszó)."),
 			run: func() tea.Cmd { return push(newNASForm(s.p)) }},
-		option{label: i18n.T("Mappa megadása"), desc: i18n.T("Bármilyen csatolt mappa (pl. /mnt/backup)."),
-			run: func() tea.Cmd { return push(newPathForm(s.p)) }},
+		option{label: i18n.T("Mappa tallózása"), desc: i18n.T("Bármilyen mappa a gépen vagy egy csatolt lemezen (pl. /mnt/backup)."),
+			run: func() tea.Cmd { return push(newLocalBrowser(s.p, a)) }},
 		option{label: i18n.T("Vissza"), run: pop},
 	)
 	cur := s.list.cur
@@ -246,51 +249,6 @@ func (s *destPicker) View(a *App, w, h int) string {
 	return "\n" + s.list.view(a, w)
 }
 
-// ───────────────────────── path form ─────────────────────────
-
-type pathForm struct {
-	p purpose
-	f form
-}
-
-func newPathForm(p purpose) *pathForm {
-	return &pathForm{p: p, f: form{fields: []*field{
-		newField("path", i18n.T("Mappa"), "", i18n.T("A mappába egy omarchy-backup almappa kerül."), fText),
-		newField("name", i18n.T("Név"), "", i18n.T("Ezen a néven jelenik meg legközelebb."), fText),
-	}}}
-}
-func (s *pathForm) Init(a *App) tea.Cmd { return s.f.focus() }
-func (s *pathForm) Title() string       { return i18n.T("Mappa megadása") }
-func (s *pathForm) Help() string {
-	return i18n.T("Tab mezőváltás  •  Enter tovább  •  Esc vissza")
-}
-func (s *pathForm) Update(a *App, msg tea.Msg) tea.Cmd {
-	if k, ok := msg.(tea.KeyPressMsg); ok && k.String() == "esc" {
-		return pop()
-	}
-	cmd, submit := s.f.update(msg)
-	if !submit {
-		return cmd
-	}
-	p := s.f.value("path")
-	if strings.HasPrefix(p, "~/") {
-		p = filepath.Join(a.d.Env.Home, p[2:])
-	}
-	if p == "" || !isDir(p) {
-		s.f.err = i18n.T("Nem létező mappa.")
-		return nil
-	}
-	name := s.f.value("name")
-	if name == "" {
-		name = filepath.Base(p)
-	}
-	d := config.Destination{Name: name, Type: config.Local, Path: p}
-	a.d.Config.Upsert(d)
-	_ = a.d.Config.Save()
-	return tea.Sequence(pop(), nextAfterDest(a, s.p, d))
-}
-func (s *pathForm) View(a *App, w, h int) string { return "\n" + s.f.view(a, w) }
-
 // ───────────────────────── NAS form ─────────────────────────
 
 type nasForm struct {
@@ -300,9 +258,10 @@ type nasForm struct {
 }
 
 type nasTestMsg struct {
-	d   config.Destination
-	pw  string
-	err error
+	d    config.Destination
+	pw   string
+	dirs []string
+	err  error
 }
 
 func newNASForm(p purpose) *nasForm {
@@ -311,8 +270,6 @@ func newNASForm(p purpose) *nasForm {
 		newField("host", i18n.T("NAS címe"), "", i18n.T("IP-cím vagy név, pl. 192.168.1.10 vagy NAS.local."), fText),
 		choiceField("type", i18n.T("Kapcsolat"), []string{"SFTP", "SMB"}, 0,
 			i18n.T("SFTP: DSM → Vezérlőpult → Fájlszolgáltatások → FTP → SFTP bekapcsolása. SMB: Windows-megosztás, mindig be van kapcsolva.")),
-		newField("share", i18n.T("Megosztott mappa"), "", i18n.T("A Synology megosztott mappa neve (pl. backup vagy homes)."), fText),
-		newField("folder", i18n.T("Almappa"), "", i18n.T("Nem kötelező, pl. omarchy."), fText),
 		newField("user", i18n.T("Felhasználó"), "", i18n.T("A DSM felhasználóneved."), fText),
 		newField("pass", i18n.T("Jelszó"), "", i18n.T("Csak erre a munkamenetre jegyezzük meg; nem kerül fájlba."), fPassword),
 	}}}
@@ -330,10 +287,7 @@ func (s *nasForm) Update(a *App, msg tea.Msg) tea.Cmd {
 			s.f.err = i18n.T("Nem sikerült kapcsolódni: ") + m.err.Error()
 			return nil
 		}
-		a.d.Config.Upsert(m.d)
-		_ = a.d.Config.Save()
-		a.nasPasswords[m.d.Name] = m.pw
-		return tea.Sequence(pop(), nextAfterDest(a, s.p, m.d))
+		return push(newNASBrowser(s.p, m.d, m.pw, m.dirs))
 	case tea.KeyPressMsg:
 		if m.String() == "esc" {
 			return pop()
@@ -346,11 +300,10 @@ func (s *nasForm) Update(a *App, msg tea.Msg) tea.Cmd {
 	if !submit {
 		return cmd
 	}
-	d := config.Destination{Name: s.f.value("name"), Type: strings.ToLower(s.f.value("type")), Host: s.f.value("host"),
-		Share: strings.Trim(s.f.value("share"), "/"), Folder: strings.Trim(s.f.value("folder"), "/"), User: s.f.value("user")}
+	d := config.Destination{Name: s.f.value("name"), Type: strings.ToLower(s.f.value("type")), Host: s.f.value("host"), User: s.f.value("user")}
 	pw := s.f.raw("pass")
-	if d.Name == "" || d.Host == "" || d.Share == "" || d.User == "" || pw == "" {
-		s.f.err = i18n.T("Minden mező kell (az almappa kivételével).")
+	if d.Name == "" || d.Host == "" || d.User == "" || pw == "" {
+		s.f.err = i18n.T("Minden mező kell.")
 		return nil
 	}
 	s.busy = true
@@ -358,19 +311,11 @@ func (s *nasForm) Update(a *App, msg tea.Msg) tea.Cmd {
 	return func() tea.Msg {
 		if d.Type == config.SFTP {
 			if err := LearnHostKey(a.ctx, a.d.Env, &d); err != nil {
-				return nasTestMsg{d, pw, fmt.Errorf(i18n.T("az SFTP nem érhető el (be van kapcsolva a DSM-ben?): %v"), err)}
+				return nasTestMsg{d: d, pw: pw, err: fmt.Errorf(i18n.T("az SFTP nem érhető el (be van kapcsolva a DSM-ben?): %v"), err)}
 			}
 		}
-		loc, err := a.resolve(d, "__probe__", pw)
-		if err != nil {
-			return nasTestMsg{d, pw, err}
-		}
-		if _, err := loc.RemoteListing(a.ctx, ""); err != nil && !strings.Contains(err.Error(), "directory not found") {
-			if _, err2 := loc.Repo.Exists(a.ctx); err2 != nil && !errors.Is(err2, engine.ErrBadPass) {
-				return nasTestMsg{d, pw, err2}
-			}
-		}
-		return nasTestMsg{d, pw, nil}
+		dirs, err := a.browse(d, pw, "")
+		return nasTestMsg{d: d, pw: pw, dirs: dirs, err: err}
 	}
 }
 func (s *nasForm) View(a *App, w, h int) string {
@@ -379,6 +324,255 @@ func (s *nasForm) View(a *App, w, h int) string {
 		out += "\n  " + a.th.accentS.Render(i18n.T("Kapcsolódás a NAS-hoz…"))
 	}
 	return out
+}
+
+func (a *App) nasCreds(d config.Destination, pw string) engine.Credentials {
+	cr := engine.Credentials{NASPassword: pw}
+	if kh := filepath.Join(a.d.Env.ConfigDir, "known_hosts"); d.Type == config.SFTP && fileExists(kh) {
+		cr.KnownHosts = kh
+	}
+	return cr
+}
+
+func (a *App) browse(d config.Destination, pw, rel string) ([]string, error) {
+	return engine.Browse(a.ctx, a.d.Env.Runner, engine.FindTool(a.d.Env.BinDir, "rclone"), d, a.nasCreds(d, pw), rel)
+}
+
+// ───────────────────────── NAS folder browser ─────────────────────────
+
+type browseMsg struct {
+	path []string
+	dirs []string
+	err  error
+}
+
+type nasBrowser struct {
+	p       purpose
+	d       config.Destination
+	pw      string
+	path    []string
+	dirs    []string
+	backup  bool // the current folder already holds an obr backup
+	loading bool
+	err     string
+	cur     int
+	newDir  *form
+}
+
+func newNASBrowser(p purpose, d config.Destination, pw string, dirs []string) *nasBrowser {
+	s := &nasBrowser{p: p, d: d, pw: pw}
+	s.setDirs(dirs)
+	return s
+}
+
+func (s *nasBrowser) setDirs(dirs []string) {
+	s.dirs, s.backup = nil, false
+	for _, d := range dirs {
+		if d == engine.BaseDir {
+			s.backup = true
+			continue
+		}
+		s.dirs = append(s.dirs, d)
+	}
+	s.cur = 0
+}
+
+func (s *nasBrowser) Title() string {
+	if s.p.restoring() {
+		return i18n.T("Synology / NAS – hol van a mentés?")
+	}
+	return i18n.T("Synology / NAS – hova mentsen?")
+}
+func (s *nasBrowser) Help() string {
+	if s.newDir != nil {
+		return i18n.T("Enter létrehozás  •  Esc mégse")
+	}
+	return i18n.T("↑/↓  •  Enter megnyit / választ  •  ←/Backspace fel  •  n új mappa  •  Esc vissza")
+}
+func (s *nasBrowser) Init(a *App) tea.Cmd { return nil }
+
+func (s *nasBrowser) load(a *App, path []string) tea.Cmd {
+	s.loading, s.err = true, ""
+	d, pw := s.d, s.pw
+	return func() tea.Msg {
+		dirs, err := a.browse(d, pw, strings.Join(path, "/"))
+		return browseMsg{path: path, dirs: dirs, err: err}
+	}
+}
+
+// rows: [choose here] [up] dirs...
+func (s *nasBrowser) rows() []string {
+	var r []string
+	if len(s.path) > 0 {
+		if !s.p.restoring() || s.backup {
+			r = append(r, "choose")
+		}
+		r = append(r, "up")
+	}
+	for _, d := range s.dirs {
+		r = append(r, "dir:"+d)
+	}
+	return r
+}
+
+func (s *nasBrowser) choose(a *App) tea.Cmd {
+	d := s.d
+	d.Share = s.path[0]
+	d.Folder = strings.Join(s.path[1:], "/")
+	a.d.Config.Upsert(d)
+	_ = a.d.Config.Save()
+	a.nasPasswords[d.Name] = s.pw
+	return tea.Sequence(func() tea.Msg { return popMsg{2} }, nextAfterDest(a, s.p, d))
+}
+
+func (s *nasBrowser) up(a *App) tea.Cmd {
+	if len(s.path) == 0 {
+		return nil
+	}
+	return s.load(a, append([]string{}, s.path[:len(s.path)-1]...))
+}
+
+func (s *nasBrowser) Update(a *App, msg tea.Msg) tea.Cmd {
+	switch m := msg.(type) {
+	case browseMsg:
+		s.loading = false
+		if m.err != nil {
+			s.err = m.err.Error()
+			return nil
+		}
+		s.path = m.path
+		s.setDirs(m.dirs)
+		return nil
+	case tea.KeyPressMsg:
+		if s.newDir != nil {
+			switch m.String() {
+			case "esc":
+				s.newDir = nil
+				return nil
+			}
+			cmd, submit := s.newDir.update(msg)
+			if !submit {
+				return cmd
+			}
+			name := strings.Trim(s.newDir.value("name"), "/ ")
+			if name == "" || strings.Contains(name, "/") {
+				s.newDir.err = i18n.T("Érvénytelen mappanév.")
+				return nil
+			}
+			s.newDir = nil
+			target := append(append([]string{}, s.path...), name)
+			d, pw := s.d, s.pw
+			s.loading = true
+			return func() tea.Msg {
+				if err := engine.MakeDir(a.ctx, a.d.Env.Runner, engine.FindTool(a.d.Env.BinDir, "rclone"), d, a.nasCreds(d, pw), strings.Join(target, "/")); err != nil {
+					return browseMsg{path: s.path, err: err}
+				}
+				dirs, err := a.browse(d, pw, strings.Join(target, "/"))
+				return browseMsg{path: target, dirs: dirs, err: err}
+			}
+		}
+		if s.loading {
+			return nil
+		}
+		rows := s.rows()
+		switch m.String() {
+		case "esc", "q":
+			return pop()
+		case "up", "k":
+			if s.cur > 0 {
+				s.cur--
+			}
+		case "down", "j":
+			if s.cur < len(rows)-1 {
+				s.cur++
+			}
+		case "left", "h", "backspace":
+			return s.up(a)
+		case "n":
+			if len(s.path) == 0 {
+				s.err = i18n.T("Új mappát egy megosztott mappán belül lehet létrehozni.")
+				return nil
+			}
+			s.newDir = &form{fields: []*field{newField("name", i18n.T("Új mappa neve"), "omarchy", "", fText)}}
+			return s.newDir.focus()
+		case "enter", "right", "l", "space":
+			if s.cur >= len(rows) {
+				return nil
+			}
+			switch r := rows[s.cur]; {
+			case r == "choose":
+				if m.String() == "enter" || m.String() == "space" {
+					return s.choose(a)
+				}
+			case r == "up":
+				return s.up(a)
+			default:
+				return s.load(a, append(append([]string{}, s.path...), strings.TrimPrefix(r, "dir:")))
+			}
+		}
+	}
+	return nil
+}
+
+func (s *nasBrowser) View(a *App, w, h int) string {
+	th := a.th
+	var b strings.Builder
+	loc := "/" + strings.Join(s.path, "/")
+	b.WriteString("\n  " + th.mutedS.Render(fmt.Sprintf("%s@%s (%s)", s.d.User, s.d.Host, strings.ToUpper(s.d.Type))) + "\n")
+	b.WriteString("  " + th.h2.Render(i18n.T("Hely: ")+loc) + "\n")
+	switch {
+	case len(s.path) == 0:
+		b.WriteString("  " + th.mutedS.Render(i18n.T("Válassz egy megosztott mappát (Enter = belépés).")) + "\n")
+	case s.backup:
+		b.WriteString("  " + th.okS.Render(i18n.T("Ebben a mappában már van Omarchy-mentés.")) + "\n")
+	case s.p.restoring():
+		b.WriteString("  " + th.mutedS.Render(i18n.T("Itt nincs mentés. Keresd meg azt a mappát, amelyben az omarchy-backup mappa van.")) + "\n")
+	default:
+		b.WriteString("  " + th.mutedS.Render(i18n.T("Lépj be egy mappába, vagy válaszd ezt; n = új mappa.")) + "\n")
+	}
+	b.WriteString("\n")
+	if s.newDir != nil {
+		b.WriteString(s.newDir.view(a, w))
+		return b.String()
+	}
+	if s.loading {
+		b.WriteString("  " + th.accentS.Render(i18n.T("Betöltés…")) + "\n")
+		return b.String()
+	}
+	rows := s.rows()
+	if len(rows) == 0 {
+		b.WriteString("  " + th.dimS.Render(i18n.T("(nincs megosztott mappa, amihez hozzáférsz)")) + "\n")
+	}
+	room := h - 8
+	if room < 5 {
+		room = 5
+	}
+	start := 0
+	if s.cur >= room {
+		start = s.cur - room + 1
+	}
+	for i := start; i < len(rows) && i < start+room; i++ {
+		var label string
+		switch r := rows[i]; {
+		case r == "choose" && s.p.restoring():
+			label = th.okS.Render("✓ " + i18n.T("Ezt a mentést nyisd meg: ") + loc)
+		case r == "choose":
+			label = th.okS.Render("✓ " + i18n.T("Ide mentsen: ") + loc)
+		case r == "up":
+			label = th.mutedS.Render("‹ " + i18n.T("Vissza egy szinttel"))
+		default:
+			label = th.text.Render("▸ " + strings.TrimPrefix(r, "dir:"))
+		}
+		if i == s.cur {
+			b.WriteString(th.accentS.Render(" › ") + label + "\n")
+		} else {
+			b.WriteString("   " + label + "\n")
+		}
+	}
+	if s.err != "" {
+		b.WriteString("\n  " + th.errS.Render(s.err) + "\n")
+	}
+	return b.String()
 }
 
 // resolve opens a destination with the given passwords.

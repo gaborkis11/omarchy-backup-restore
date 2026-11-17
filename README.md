@@ -201,11 +201,14 @@ The first start asks for the language. You can change it later in **Settings**.
 | Name | `Synology` |
 | NAS address | `192.168.1.10` or `NAS.local` |
 | Connection | `SFTP` (recommended) or `SMB` |
-| Shared folder | `backup` |
-| Sub folder | optional |
 | User / Password | your DSM login |
 
-Press Enter on the last field. `obr` connects and remembers the NAS host key; then it continues like Part 1.
+Press Enter on the last field. `obr` connects and remembers the NAS host key. Then **browse** the shared folders:
+
+- `Enter` opens a folder, `←`/`Backspace` goes up a level, `n` creates a new folder;
+- choose **✓ Save here** in the folder you want.
+
+After that it continues like Part 1.
 The NAS password is kept only for the session, unless you turn on scheduled backups.
 
 **Restoring from the NAS on a fresh machine:**
@@ -216,7 +219,9 @@ smbclient //<NAS address>/<share> -U <user> -c 'prompt; cd omarchy-backup/kit; m
 bash restore.sh
 ```
 
-Then choose **Add Synology / NAS** with the same details.
+Then choose **Add Synology / NAS** with the same details and browse to the folder that holds the backup. Only folders that contain a backup can be chosen when restoring.
+
+**Local folders** can be browsed the same way: in the destination list choose **Browse folders**. When restoring, folders marked ★ contain a backup.
 
 ---
 
